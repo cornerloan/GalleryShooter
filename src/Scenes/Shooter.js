@@ -201,7 +201,7 @@ class Shooter extends Phaser.Scene {
 
     gameOver() {
         let my = this.my;
-
+        this.sound.play('explosion');
         my.sprite.button.visible = true;
         this.buttonText.visible = true;
 
