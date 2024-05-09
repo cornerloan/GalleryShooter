@@ -115,6 +115,7 @@ class Shooter extends Phaser.Scene {
                 this.enemyMoveAttack();
                 this.enemyShootAttack();
                 this.upgrade();
+                this.scrollingBackground();
             }
             else {
                 this.gameOver();
@@ -123,7 +124,29 @@ class Shooter extends Phaser.Scene {
     }
 
 
+    scrollingBackground(){
+        let my = this.my;
+        this.backgroundCount++;
+        if(this.backgroundCount >= 5){
+            let dot = this.add.text(game.config.width + 10, Phaser.Math.Between(0, game.config.height));
+            dot.text = ".";
+            
 
+            this.backgroundArt.push(dot);
+            this.backgroundCount = 0;
+        }
+
+        let index = 0;
+        //console.log(this.backgroundArt.length);
+        this.backgroundArt.forEach((dot) => {
+            dot.x -= 3;
+            if(dot.x < -20){
+                this.backgroundArt.splice(index, 1);
+                index--;
+            }
+            index++;
+        });
+    }
 
 
     upgrade() {
@@ -343,7 +366,6 @@ class Shooter extends Phaser.Scene {
             }
         }
 
-        console.log(this.asteroids.length);
         this.asteroids.forEach((ast) => {
             if (ast.x > -100) {
                 ast.x -= 3;
@@ -612,5 +634,8 @@ class Shooter extends Phaser.Scene {
         }
 
         this.sinCount = 0.1;
+
+        this.backgroundCount = 0;
+        this.backgroundArt = [];
     }
 }
