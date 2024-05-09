@@ -17,7 +17,7 @@ class Shooter extends Phaser.Scene {
         this.hit = false;
         this.timer = 0;
         this.moveTimer = 0;
-        
+
         this.basicEnemy = [];
         this.shootEnemy = [];
         this.fastEnemy = [];
@@ -25,11 +25,21 @@ class Shooter extends Phaser.Scene {
         this.enemyShootTimer = 0;
         this.regShots = [];
         this.fastShots = [];
+        this.enemyMoveTimer = 0;
+        this.asteroids = [];
 
-        this.numLives = 3;
-        this.gameOver = false;
+        this.numLives;
+        this.playing = true;
 
-        this.scoreNum = 0;
+        this.speed;
+        this.levelNum;
+
+        this.scoreNum;
+        this.canUpgrade = true;
+        this.upgradeCount = 0;
+
+        this.roundStartTimer = 0;
+        this.roundEndTimer = 0;
     }
 
     preload() {
@@ -55,10 +65,27 @@ class Shooter extends Phaser.Scene {
         //this.load.audio('temp3', 'laserSmall_003.ogg');
         this.load.audio('explosion', 'explosionCrunch_000.ogg');
 
+        this.load.image("button", "buttonGreen.png");
+        this.load.image("mouse", "cursor.png");
+
+        this.load.image("ast1", "meteorGrey_small1.png");
+        this.load.image("ast2", "meteorGrey_small2.png");
+        this.load.image("ast5", "meteorBrown_small1.png");
+        this.load.image("ast6", "meteorBrown_small2.png");
+        this.load.image("ast3", "meteorGrey_tiny1.png");
+        this.load.image("ast4", "meteorGrey_tiny2.png");
+        this.load.image("ast7", "meteorBrown_tiny1.png");
+        this.load.image("ast8", "meteorBrown_tiny2.png");
     }
 
-    create() {
+    create(data) {
         let my = this.my;
+
+        this.numLives = data[0];
+        this.scoreNum = data[1];
+        this.speed = data[2];
+        this.levelNum = data[3];
+
         this.init_game();
     }
 
@@ -72,31 +99,67 @@ class Shooter extends Phaser.Scene {
             this.timer = 0;
         }
 
-        this.playerMovement();
-        this.playerShoot();
-        this.playerLives();
+        let enemyCount = this.basicEnemy.length + this.fastEnemy.length + this.shootEnemy.length;
 
-        this.enemyMovement();
-
-        this.coinMovement();
-        this.scoreUI();
-
-        this.enemyShootAttack();
+        if (this.roundStart()) {
+            if (this.numLives > 0) {
+                if (enemyCount == 0) {
+                    this.roundOver();
+                }
+                this.playerMovement();
+                this.playerShoot();
+                this.playerLives();
+                this.enemyMovement();
+                this.coinMovement();
+                this.scoreUI();
+                this.enemyMoveAttack();
+                this.enemyShootAttack();
+                this.upgrade();
+            }
+            else {
+                this.gameOver();
+            }
+        }
     }
 
 
 
 
 
+    upgrade() {
+        let my = this.my;
 
+        if (this.lifeText.visible || this.speedText.visible) {
+            this.upgradeCount++;
+        }
+
+        if (this.upgradeCount >= 120) {
+            this.lifeText.visible = false;
+            this.speedText.visible = false;
+            this.upgradeCount = 0;
+        }
+
+
+        if (this.canUpgrade && this.scoreNum % 25 == 0 && this.scoreNum != 0) {
+            if (this.numLives < 3) {
+                this.lifeText.visible = true;
+                this.numLives++;
+            }
+            else {
+                this.speedText.visible = true;
+                this.speed += 0.1;
+            }
+            this.canUpgrade = false;
+        }
+    }
 
     //updates the player lives graphic
     playerLives() {
         let my = this.my;
         let count = 0;
         //add code here later for when the player runs out of lives
-        if (this.gameOver) {
-
+        if (this.numLives == 0) {
+            this.gameOver();
         }
 
         this.lives.forEach((life) => {
@@ -110,6 +173,59 @@ class Shooter extends Phaser.Scene {
         });
     }
 
+    roundStart() {
+        this.roundText.visible = true;
+        this.roundStartTimer++;
+        if (this.roundStartTimer >= 300) {
+            this.roundText.visible = false;
+            return true;
+        }
+        return false;
+    }
+
+    roundOver() {
+        let my = this.my;
+
+        this.roundEndTimer++;
+
+        if (this.roundEndTimer >= 420) {
+            this.levelNum++;
+            let data = [];
+            data[0] = this.numLives;
+            data[1] = this.scoreNum;
+            data[2] = this.speed;
+            data[3] = this.levelNum;
+            this.scene.start("shooter", data);
+        }
+    }
+
+    gameOver() {
+        let my = this.my;
+
+        my.sprite.button.visible = true;
+        this.buttonText.visible = true;
+
+        this.gameOverText.visible = true;
+
+        my.sprite.cursorSprite.visible = true;
+        var pointer = this.input.activePointer;
+        my.sprite.cursorSprite.x = pointer.x;
+        my.sprite.cursorSprite.y = pointer.y;
+
+        if (pointer.isDown) {
+            my.sprite.cursorSprite.setScale(0.9);
+        }
+        else {
+            my.sprite.cursorSprite.setScale(1);
+        }
+
+        if (pointer.isDown) {
+            if (this.collides(my.sprite.cursorSprite, my.sprite.button)) {
+                this.scene.start("menu");
+            }
+        }
+    }
+
     scoreUI() {
         //this.text.setText("Supplies: ");
         this.scoreText.text = "Supplies:" + this.scoreNum;
@@ -119,11 +235,11 @@ class Shooter extends Phaser.Scene {
     playerMovement() {
         let my = this.my;
         if (this.wKey.isDown && my.sprite.body.y > 50) {
-            my.sprite.body.y -= 5;
+            my.sprite.body.y -= 5 * this.speed;
             my.sprite.bodyY = my.sprite.body.y;
         }
         if (this.sKey.isDown && my.sprite.body.y < 550) {
-            my.sprite.body.y += 5;
+            my.sprite.body.y += 5 * this.speed;
             my.sprite.bodyY = my.sprite.body.y;
         }
     }
@@ -216,23 +332,29 @@ class Shooter extends Phaser.Scene {
     //makes enemies attack by moving towards the player
     enemyMoveAttack() {
         let my = this.my;
-        //unshift adds to beginning of array. make sure to remove the point after though
-        //get a random ship from the fleet of enemies
-        let max = this.basicEnemy.length + this.fastEnemy.length + this.shootEnemy.length;
-        let rand = Phaser.Math.Between(0, max);
+        this.sinCount += 0.1;
+        this.enemyMoveTimer++;
+        if (this.enemyMoveTimer >= 180) {
+            let rand = Phaser.Math.Between(0, 7);
+            if (this.asteroids[rand].x > -100) this.enemyMoveAttack();
+            else {
+                this.asteroids[rand].x = game.config.width + 50;
+                this.enemyMoveTimer = 0;
+            }
+        }
 
-        //basic enemy moves
-        if (rand < this.basicEnemy.length) {
+        console.log(this.asteroids.length);
+        this.asteroids.forEach((ast) => {
+            if (ast.x > -100) {
+                ast.x -= 3;
+                ast.y += Math.sin(this.sinCount) * 3;
+            }
 
-        }
-        else if (rand < this.fastEnemy.length) {
-            //update rand to be in the index for fast enemies
-            rand = rand - this.basicEnemy.length;
-        }
-        else if (rand < this.shootEnemy.length) {
-            //update rand to be in the index for shoot enemies
-            rand = rand - this.basicEnemy.length - this.fastEnemy.length;
-        }
+            if (this.collides(ast, my.sprite.body)) {
+                this.numLives--;
+                ast.x = -100;
+            }
+        });
     }
 
     //makes enemies attack by shooting at the player
@@ -243,16 +365,14 @@ class Shooter extends Phaser.Scene {
         //unshift adds to beginning of array. make sure to remove the point after though
 
         let max = this.basicEnemy.length + this.fastEnemy.length + this.shootEnemy.length;
-        console.log(this.basicEnemy.length, this.fastEnemy.length, this.shootEnemy.length)
         if (this.enemyShootTimer >= 60 && max > 0) {
 
             //get a random ship from the fleet of enemies
 
-            let rand = Phaser.Math.Between(0, max-1);
+            let rand = Phaser.Math.Between(0, max - 1);
             let shotposX;
             let shotposY;
             let isfast = false;
-            //console.log(max, rand);
 
             if (rand < this.basicEnemy.length) {
                 shotposX = this.basicEnemy[rand].x;
@@ -320,7 +440,6 @@ class Shooter extends Phaser.Scene {
 
     coinMovement() {
         let my = this.my;
-        //console.log("coinmove");
         let index = 0;
         this.coins.forEach((coin) => {
             //move shot and delete if off screen
@@ -335,6 +454,7 @@ class Shooter extends Phaser.Scene {
                 coin.x = -100;
                 coin.destroy();
                 this.scoreNum += 5;
+                this.canUpgrade = true;
                 index--;
             }
             index++;
@@ -388,8 +508,9 @@ class Shooter extends Phaser.Scene {
         this.lives = [];
         let liveX = 30;
         let liveY = 580;
-        for (let i = 0; i < 3; i++) {
+        for (let i = 1; i < 4; i++) {
             my.sprite.life = this.add.sprite(liveX, liveY, "spritePack", "playerLife1_green.png");
+            if (this.numLives < i) my.sprite.life.visible = false;
             this.lives.push(my.sprite.life);
             liveX += 50;
         }
@@ -433,6 +554,63 @@ class Shooter extends Phaser.Scene {
 
         this.coins = [];
 
-        this.scoreText = this.add.text(16, 16, "Score: ");
+        this.scoreText = this.add.text(16, 16);
+        this.scoreText.text = "Supplies:" + this.scoreNum;
+
+        my.sprite.button = this.add.sprite(game.config.width / 2, game.config.height / 1.3, "spritePack", "buttonGreen.png");
+        my.sprite.button.visible = false;
+        this.buttonText = this.add.text((game.config.width / 2), (game.config.height / 1.3), "Main Menu");
+        this.buttonText.setOrigin(0.5);
+        this.buttonText.setColor("#000000");
+        this.buttonText.visible = false;
+
+        this.gameOverText = this.add.text(game.config.width / 2, game.config.height / 4, "Game Over", {
+            fontSize: '100px'
+        });
+        this.gameOverText.setColor("#30d41e");
+        this.gameOverText.setOrigin(0.5);
+        this.gameOverText.visible = false;
+
+        this.lifeText = this.add.text(game.config.width / 2, game.config.height / 4, "+1 Life");
+        this.lifeText.setOrigin(0.5);
+        this.lifeText.setColor("#ffffff");
+        this.lifeText.visible = false;
+
+        this.speedText = this.add.text(game.config.width / 2, game.config.height / 4, "+10% Speed");
+        this.speedText.setOrigin(0.5);
+        this.speedText.setColor("#ffffff");
+        this.speedText.visible = false;
+
+        this.roundText = this.add.text(game.config.width / 2, game.config.height / 4);
+        this.roundText.text = "Level:" + this.levelNum;
+        this.roundText.setOrigin(0.5);
+        this.roundText.setColor("#ffffff");
+        this.roundText.visible = false;
+
+
+        my.sprite.cursorSprite = this.add.sprite(0, 0, "spritePack", "cursor.png");
+        my.sprite.cursorSprite.visible = false;
+
+        this.roundStartTimer = 0;
+        this.roundEndTimer = 0;
+
+        this.asteroids = [];
+        for (let i = 0; i < 8; i++) {
+            let name = "meteor";
+            if (i < 2 || (i > 3 && i <= 5)) name += "Grey";
+            else name += "Brown";
+
+            if (i < 4) name += "_small";
+            else name += "_tiny";
+
+            if (i % 2 == 0) name += "1.png";
+            else name += "2.png";
+
+            my.sprite.ast = this.add.sprite(-100, 70 * (i + 1), "spritePack", name);
+            this.asteroids.push(my.sprite.ast);
+
+        }
+
+        this.sinCount = 0.1;
     }
 }
